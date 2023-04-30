@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>chatgpt 3.5 demo</title>
+</head>
+<body>
+  <h1>type your question</h1>
+  <textarea id="message" placeholder="write here"></textarea>
+  <button onclick="sendMessage()">ok</button>
+  <div id="chat"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.0/axios.min.js"></script>
+  <script>
+    function sendMessage() {
+      // Get the message from the input field.
+      const message = document.getElementById("message").textContent;
+    
+      // Create an API request object.
+      const request = {
+        model: "gpt-3.5-turbo",
+        messages: [
+          { role: "system", content: message }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000
+      };
+    
+      // Make an API request.
+      axios({
+        url: "https://api.openai.com/v1/chat/completions",
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer your_api_key",
+          "Content-Type": "application/json"
+        },
+        data: JSON.stringify(request)
+      })
+        .then(response => response.data)
+        .then(response => {
+          // Get the response message.
+          const message = response.choices[0].message.content;
+    
+          // Append the message to the chat area.
+          document.getElementById("chat").innerHTML += message + "<br>";
+        });
+		
+    }
+  </script>
+</body>
+</html>
