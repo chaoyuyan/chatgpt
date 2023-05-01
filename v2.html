@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>智能问答系统</title>
+</head>
+<body>
+  <center>
+    <h1>无所不知 开始你的提问</h1>
+    <textarea id="message" placeholder="开始你的表演"></textarea><br />
+    <button onclick="sendMessage()">好了</button>
+    <div id="loading" style="display:none;">等一下</div>
+    <div id="chat"></div>
+  </center>
+  <script>
+    function sendMessage() {
+      const message = document.getElementById("message").value;
+      document.getElementById("chat").innerHTML += message + "<br>";
+      document.getElementById("loading").style.display = "block";
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", "https://api.openai.com/v1/chat/completions");
+      xhr.setRequestHeader("Authorization", "Bearer your_apk");
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.send(JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [
+          { role: "user",   content: message }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000
+      }));
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          const response = JSON.parse(xhr.responseText);
+          const message = response.choices[0].message.content;
+          document.getElementById("chat").innerHTML += message + "<br>";
+          document.getElementById("loading").style.display = "none";
+        } else {
+          console.log("Error: " + xhr.status);
+        }
+      };
+    }
+  </script>
+</body>
+</html>
