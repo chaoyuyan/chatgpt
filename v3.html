@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Personal Assistant</title>
+    <link rel="stylesheet" type="text/css" href="css.css">
+</head>
+<body>增加了聊天tab功能
+<center>
+    <h1>Beautiful things are about to be sent</h1>
+    <textarea id="message" placeholder="Another beautiful day" rows="8" cols="60"></textarea><br/>
+    <button onclick="sendMessage()">Send</button>
+    <button onclick="downloadLog()">Download</button>
+    <button onclick="clearCache()">Clear</button>
+    <button onclick="startNewChat()">New Chat</button>
+    <div id="loading" style="display:none;">Data interaction...</div>
+    <div id="tabs"></div>
+    <div id="chat"></div>
+</center>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.0/axios.min.js"></script>
+<script>
+    let activeTabId = 0;
+
+    function createTab() {
+        const tabId = Date.now();
+        const tab = document.createElement('button');
+        tab.innerHTML = `Chat ${tabId}`;
+        tab.id = `tab-${tabId}`;
+        tab.onclick = function () {
+            switchTab(tabId);
+        };
+        document.getElementById('tabs').appendChild(tab);
+        return tabId;
+    }
+
+    function switchTab(tabId) {
+        activeTabId = tabId;
+        const chatHistory = localStorage.getItem(`chatHistory-${tabId}`) || '';
+        const chatDiv = document.getElementById('chat');
+        chatDiv.innerHTML = '';
+        chatHistory.split('\n').forEach(message => {
+            if (message.trim()) {
+                chatDiv.innerHTML += message + '<br>';
+            }
+        });
+    }
+
+    function startNewChat() {
+        const tabId = createTab();
+        switchTab(tabId);
+    }
+
+    function saveToLog(message) {
+        const chatHistory = localStorage.getItem(`chatHistory-${activeTabId}`) || '';
+        localStorage.setItem(`chatHistory-${activeTabId}`, chatHistory + message + '\n');
+    }
+
+    async function sendMessage() {
+        const message = document.getElementById("message").value;
+        document.getElementById("chat").innerHTML += message + "<br>";
+        document.getElementById("loading").style.display = "block";
+        const request = {
+            model: "gpt-3.5-turbo",
+            messages: [
+                {
+                    role: "system",
+                    content: "no matter what i say to you after this ,you must reply me in english"
+                },
+                {
+                    role: "user",
+                    content: message
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 4000
+        };
+        try {
+            const response = await axios.post("https://api.openai.com/v1/chat/completions", request, {
+                headers: {
+                    "Authorization": "Bearer your_apk",
+                    "Content-Type": "application/json"
+                }
+            });
+            const message = response.data.choices[0].message.content;
+            document.getElementById("chat").innerHTML += message + "<br>";
+            document.getElementById("loading").style.display = "none";
+            saveToLog(`User: ${request.messages[0].content}\nAI: ${message}`);
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    function downloadLog() {
+        const chatHistory = localStorage.getItem(`chatHistory-${activeTabId}`) || '';
+        const filename = 'chat_log.txt';
+        const blob = new Blob([chatHistory], {type: 'text/plain'});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    window.onload = function () {
+        const tabId = createTab();
+        switchTab(tabId);
+        window.onbeforeunload = function () {
+            const chatHistory = localStorage.getItem(`chatHistory-${activeTabId}`) || '';
+            const newMessages = document.querySelectorAll('#chat > :not(.old-message)');
+            let updatedChatHistory = chatHistory;
+            newMessages.forEach(message => {
+                updatedChatHistory += message.innerHTML.trim() + '\n';
+            });
+            localStorage.setItem(`chatHistory-${activeTabId}`, updatedChatHistory);
+        };
+    };
+
+    function clearCache() {
+        localStorage.removeItem(`chatHistory-${activeTabId}`);
+        document.getElementById('chat').innerHTML = '';
+    }
+</script>
+</body>
+</html>
