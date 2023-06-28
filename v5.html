@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+<style>
+.banner {
+text-align: center;
+--banner-height: 2.5rem;
+  width: 100%;
+  height: var(--banner-height);
+  background-color: rgba(23,23,23,1);
+  color: rgba(248,250,252,1);
+  padding: 0 1rem;
+}
+
+
+.close {
+  background-color: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+    width: 2rem;
+    height: 2rem;
+    font-family: inherit;
+    font-size: 100%;
+    font-weight: inherit;
+    line-height: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+}
+
+
+
+
+.bs {
+    vertical-align: middle;
+    width: 1rem;
+    height: 1rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+</style>
+<head>
+  <title>聊天框架</title>
+
+</head>
+<body>
+<div class="banner">
+  <p>🎉 这里是宣传语
+  <button class="close">
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" class="bs"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+  
+  </button></p>
+</div>
+
+  <center>
+  <!--
+ API 地址：<input type=text id="myurl"  value="" placeholder="" />
+
+   <br />-->
+   API 密钥：<input type=password id="mykey" placeholder="" />
+
+   <br />
+    <textarea id="message" placeholder="在这里写字" rows="8" cols="60"></textarea><br />
+	
+    <button onclick="sendMessage()">发送</button>
+    <button onclick="downloadLog()">下载</button>
+	<button onclick="clearLog()">删除</button>
+    <div id="loading" style="display:none;">数据交换中</div><br />
+    <textarea id="chat" rows="8" cols="60"></textarea>
+  </center> 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.0/axios.min.js"></script>
+  <script>
+  const banner = document.querySelector('.banner');
+const closeBtn = document.querySelector('.close');
+
+closeBtn.addEventListener('click', () => {
+  banner.style.display = 'none';
+});
+
+  
+  
+  
+    function saveToLog(message) {
+      const chatHistory = localStorage.getItem('chatHistory') || '';
+      localStorage.setItem('chatHistory', chatHistory + message + '\n');
+    }
+
+    function sendMessage() {
+      const message = document.getElementById("message").value;
+	  //const myurl=document.getElementById("myurl").value;
+	  const mykey=document.getElementById("mykey").value;
+      document.getElementById("chat").innerHTML += message + "<br>";        
+      document.getElementById("loading").style.display = "block";      
+      const request = {
+        model: "gpt-3.5-turbo-0613",
+        messages: [
+          { role: "user",   content: message }
+        ],
+        temperature: 0.8,
+        max_tokens: 15000
+      };        
+      axios({
+      //  url: myurl,
+	 url: "https://api.openai.com/v1/chat/completions",
+
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer "+ mykey,
+          "Content-Type": "application/json"
+        },
+        data: JSON.stringify(request)
+      })
+        .then(response => response.data)
+        .then(response => {         
+          const message = response.choices[0].message.content;            
+          document.getElementById("chat").innerHTML += message + "<br>";        
+          document.getElementById("loading").style.display = "none";
+          saveToLog(`User: ${request.messages[0].content}\nAI: ${message}`);
+        });
+    }
+    
+    function downloadLog() {
+      const chatHistory = localStorage.getItem('chatHistory') || '';
+      const filename = 'chat_log.txt';
+      const blob = new Blob([chatHistory], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    window.onload = function() {
+      const chatHistory = localStorage.getItem('chatHistory') || '';
+      const chatDiv = document.getElementById('chat');
+      chatHistory.split('\n').forEach(message => {
+        if (message.trim()) {
+          chatDiv.innerHTML += message + '<br>';
+        }
+      });
+    }
+
+    window.onbeforeunload = function() {
+      const chatHistory = localStorage.getItem('chatHistory') || '';
+      const newMessages = document.querySelectorAll('#chat > :not(.old-message)');
+      newMessages.forEach(message => {
+        chatHistory += message.innerHTML.trim() + '\n';
+      });
+      localStorage.setItem('chatHistory', chatHistory);
+    }
+	function clearLog() {
+    localStorage.setItem('chatHistory', '');
+    document.getElementById('chat').innerHTML = '';
+  }
+  </script>
+</body>
+</html>
