@@ -1,0 +1,318 @@
+增加了自定义接口和密钥功能
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">  
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>自由的天空</title>	
+    <link rel="stylesheet" type="text/css" href="style.css">	
+	<style>
+/* css.css */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    margin: 0;
+    padding: 0;
+}
+
+center {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+h1 {
+    font-size: 2em;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+textarea {
+    width: 100%;
+
+    font-size: 1em;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    resize: none;
+}
+
+button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 1em;
+    margin: 10px 2px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+#loading {
+    color: #333;
+    font-size: 1em;
+    margin-bottom: 10px;
+}
+
+#tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+#tabs button {
+    background-color: #ddd;
+    color: #333;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+#tabs button:hover {
+    background-color: #ccc;
+}
+
+#tabs button.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.close-tab {
+    font-size: 1.2em;
+    cursor: pointer;
+}
+
+#chat {text-align:left;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    font-size: 1em;
+    line-height: 1.5;
+    height: 300px;
+    overflow-y: auto;
+}
+#hm{
+	margin-bottom: 1.5rem;
+    background: #eff5fb;
+    padding: 14px;
+    font-size: 15px;
+}
+#ai{
+margin-bottom: 1.5rem;
+    background: #effaf5;
+    padding: 14px;
+    font-size: 15px;
+    line-height: 30px;
+}
+
+    
+  </style>
+</head>
+<body>
+<center>
+    <h1>个人助理</h1>
+		API 接口：<input id="url" type="text" value="https://api.openai.com/v1/chat/completions"><br>
+	API 密钥：<input id="key" type="password"><br>
+	<button onclick="saveInputToCache()">保存</button>
+
+	<div id="tabs"></div>
+    <div id="chat"></div>
+    <textarea id="message" placeholder="点这里输入文字" rows="8" cols="60"></textarea><br/>
+    <button onclick="sendMessage()">发送</button>
+    <button onclick="downloadLog()">下载</button>
+    <button onclick="clearCache()">删除</button>
+    <button onclick="startNewChat()">新建</button><br />
+		<div id="loading" style="display:none;">稍等</div>
+  
+   
+</center>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.0/axios.min.js"></script>
+<script>
+    var activeTabId = 0;	
+function createTab(tabId = Date.now()) {
+//	function createTab(tabId = new Date().toLocaleTimeString()) {
+//	function createTab(tabId = new Date().toLocaleString()) {
+    const tab = document.createElement('button');  
+	tab.innerHTML = ` <span>Chat ${tabId}</span> <span class="close-tab" onclick="closeChat(${tabId},event);">&times;</span>  `;
+    tab.id = `tab-${tabId}`;
+    tab.onclick = function () {        switchTab(tabId);    };
+    document.getElementById('tabs').appendChild(tab);
+    sessionStorage.setItem('activeTabId', tabId);
+    return tabId;
+}
+
+ function closeChat(tabId,event) {event.stopPropagation();
+        const tab = document.getElementById(`tab-${tabId}`);
+        tab.remove();
+        localStorage.removeItem(`chatHistory-${tabId}`);
+
+        const tabButtons = document.querySelectorAll('#tabs > button');
+        if (tabButtons.length > 0) {
+            const firstTabId = Number(tabButtons[0].id.split('-')[1]);
+            switchTab(firstTabId);
+        } else {
+            startNewChat();
+        }
+    }
+
+
+    function switchTab(tabId) {
+        activeTabId = tabId;
+        const chatHistory = localStorage.getItem(`chatHistory-${tabId}`) || '';
+        const chatDiv = document.getElementById('chat');
+        chatDiv.innerHTML = '';
+        chatHistory.split('\n').forEach(message => {
+            if (message.trim()) {        chatDiv.innerHTML += message + '<br>';     }
+        });
+        sessionStorage.setItem('activeTabId', tabId);
+    }
+
+    function startNewChat() {
+        const tabId = createTab();
+        switchTab(tabId);
+    }
+
+    function saveToLog(message) {
+        const chatHistory = localStorage.getItem(`chatHistory-${activeTabId}`) || '';
+        localStorage.setItem(`chatHistory-${activeTabId}`, chatHistory + message + '\n');
+    }
+
+
+	async function sendMessage() {
+var url = document.getElementById("url").value;
+var key = document.getElementById("key").value;
+    const message = document.getElementById("message").value;
+    document.getElementById("chat").innerHTML += "<div id='hm'>"+message + "</div>";
+    saveToLog(`User: ${message}`); // Save user message before making the API call
+    document.getElementById("loading").style.display = "block";
+    const request = {
+        model: "gpt-3.5-turbo-16k",
+        messages: [
+            {
+                role: "system",
+                content: "You are my personal assistant, personal secretary, understanding, hardworking, patient and strong."
+            },
+            {
+                role: "user",
+                content: message
+            }
+        ],
+        temperature: 0.7,
+        max_tokens: 15000,
+		
+    };
+    try {
+        const response = await axios.post(url, request, {
+            headers: {
+                "Authorization": "Bearer "+key,
+                "Content-Type": "application/json"
+            }
+        });
+        const message = response.data.choices[0].message.content;
+        document.getElementById("chat").innerHTML += "<div id='ai'>"+message + "</div>";
+        document.getElementById("loading").style.display = "none";
+        saveToLog(`AI: ${message}`); // Save AI message after receiving the response
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+
+    function downloadLog() {
+        const chatHistory = localStorage.getItem(`chatHistory-${activeTabId}`) || '';
+        const filename = 'chat_log.txt';
+        const blob = new Blob([chatHistory], {type: 'text/plain'});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+function saveInputToCache() {
+  // Get the input values
+  var apiUrl = document.getElementById("url").value;
+  var apiKey = document.getElementById("key").value;
+  
+  // Check if the browser supports caching
+  if (typeof(Storage) !== "undefined") {
+    // Save the input values to the browser's cache
+    localStorage.setItem("apiUrl", apiUrl);
+    localStorage.setItem("apiKey", apiKey);
+    
+    // Show a success message
+    console.log("Input content saved to browser cache.");
+  } else {
+    // Browser doesn't support caching
+    console.log("Sorry, your browser doesn't support caching.");
+  }
+}
+
+
+	window.onload = function () {
+
+
+    // Restore tabs from localStorage
+    const savedTabs = JSON.parse(localStorage.getItem('savedTabs')) || [];
+    if (savedTabs.length > 0) {
+        savedTabs.forEach(tabId => {
+            createTab(tabId);
+        });
+        const activeTabIdFromSession = sessionStorage.getItem('activeTabId');
+        if (activeTabIdFromSession) {
+            activeTabId = Number(activeTabIdFromSession);
+            switchTab(activeTabId);
+        } else {
+            switchTab(savedTabs[0]);
+        }
+    } else {
+        const tabId = createTab();
+        switchTab(tabId);
+    }
+
+    window.onbeforeunload = function () {
+        const chatHistory = localStorage.getItem(`chatHistory-${activeTabId}`) || '';
+        const newMessages = document.querySelectorAll('#chat > :not(.old-message)');
+        let updatedChatHistory = chatHistory;
+        newMessages.forEach(message => {
+            updatedChatHistory += message.innerHTML.trim() + '\n';
+        });
+        localStorage.setItem(`chatHistory-${activeTabId}`, updatedChatHistory);
+
+        // Save tabs to localStorage
+        const tabButtons = document.querySelectorAll('#tabs > button');
+        const tabIds = Array.from(tabButtons).map(button => Number(button.id.split('-')[1]));
+        localStorage.setItem('savedTabs', JSON.stringify(tabIds));
+    };
+
+// Retrieve the stored values from the cache
+var storedApiUrl = localStorage.getItem("apiUrl");
+var storedApiKey = localStorage.getItem("apiKey");
+
+// Populate the input fields with the stored values
+document.getElementById("url").value = storedApiUrl;
+document.getElementById("key").value = storedApiKey;
+};
+
+
+    function clearCache() {
+        localStorage.removeItem(`chatHistory-${activeTabId}`);
+        document.getElementById('chat').innerHTML = '';
+    }
+</script>
+</body>
+</html>
